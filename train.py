@@ -9,9 +9,11 @@ os.environ["PYTORCH_ALLOC_CONF"] = "expandable_segments:True"
 os.environ["HF_HUB_DISABLE_PROGRESS_BARS"] = "1"
 
 import gc
+import json
 import math
 import time
 from dataclasses import dataclass, asdict
+from pathlib import Path
 
 import torch
 import torch.nn as nn
@@ -38,6 +40,7 @@ class GPTConfig:
     n_kv_head: int = 6
     n_embd: int = 768
     window_pattern: str = "SSSL"
+    dropout: float = 0.0
 
 
 def norm(x):
@@ -71,6 +74,7 @@ class CausalSelfAttention(nn.Module):
         self.c_k = nn.Linear(self.n_embd, self.n_kv_head * self.head_dim, bias=False)
         self.c_v = nn.Linear(self.n_embd, self.n_kv_head * self.head_dim, bias=False)
         self.c_proj = nn.Linear(self.n_embd, self.n_embd, bias=False)
+        self.resid_dropout = nn.Dropout(config.dropout)
         self.ve_gate_channels = 32
         self.ve_gate = nn.Linear(self.ve_gate_channels, self.n_kv_head, bias=False) if has_ve(layer_idx, config.n_layer) else None
 
@@ -93,6 +97,7 @@ class CausalSelfAttention(nn.Module):
         y = fa3.flash_attn_func(q, k, v, causal=True, window_size=window_size)
         y = y.contiguous().view(B, T, -1)
         y = self.c_proj(y)
+        y = self.resid_dropout(y)
         return y
 
 
@@ -101,11 +106,13 @@ class MLP(nn.Module):
         super().__init__()
         self.c_fc = nn.Linear(config.n_embd, 4 * config.n_embd, bias=False)
         self.c_proj = nn.Linear(4 * config.n_embd, config.n_embd, bias=False)
+        self.resid_dropout = nn.Dropout(config.dropout)
 
     def forward(self, x):
         x = self.c_fc(x)
         x = F.relu(x).square()
         x = self.c_proj(x)
+        x = self.resid_dropout(x)
         return x
 
 
@@ -426,8 +433,75 @@ class MuonAdamW(torch.optim.Optimizer):
                 self._step_muon(group)
 
 # ---------------------------------------------------------------------------
-# Hyperparameters (edit these directly, no CLI flags needed)
+# Hyperparameters (QIEA-controlled via hyperparams.json)
 # ---------------------------------------------------------------------------
+
+HYPERPARAMS_PATH = Path("hyperparams.json")
+QIEA_LAST_RESULT_PATH = Path("qiea_last_result.json")
+
+DEFAULT_QIEA_HYPERPARAMS = {
+    "embedding_lr": 0.6,
+    "unembedding_lr": 0.004,
+    "matrix_lr": 0.04,
+    "scalar_lr": 0.5,
+    "weight_decay": 0.2,
+    "adam_beta1": 0.8,
+    "adam_beta2": 0.95,
+    "warmup_ratio": 0.0,
+    "warmdown_ratio": 0.5,
+    "dropout": 0.0,
+}
+
+HYPERPARAM_RANGES = {
+    "embedding_lr": (0.01, 2.0),
+    "unembedding_lr": (0.0001, 0.05),
+    "matrix_lr": (0.001, 0.2),
+    "scalar_lr": (0.01, 2.0),
+    "weight_decay": (0.0, 1.0),
+    "adam_beta1": (0.5, 0.999),
+    "adam_beta2": (0.8, 0.9999),
+    "warmup_ratio": (0.0, 0.95),
+    "warmdown_ratio": (0.0, 0.95),
+    "dropout": (0.0, 0.6),
+}
+
+
+def _clamp_hparam(name, value):
+    low, high = HYPERPARAM_RANGES[name]
+    raw = float(value)
+    clamped = min(max(raw, low), high)
+    if clamped != raw:
+        print(f"Clamped {name} from {raw} to {clamped}")
+    return clamped
+
+
+def load_qiea_hyperparams(path):
+    hparams = DEFAULT_QIEA_HYPERPARAMS.copy()
+    loaded = {}
+    if path.exists():
+        try:
+            loaded = json.loads(path.read_text())
+        except (OSError, json.JSONDecodeError) as exc:
+            print(f"Failed to read {path}: {exc}. Using defaults.")
+    else:
+        print(f"{path} not found. Using defaults.")
+
+    if isinstance(loaded, dict):
+        for key in hparams:
+            if key in loaded:
+                hparams[key] = loaded[key]
+
+    for key in hparams:
+        hparams[key] = _clamp_hparam(key, hparams[key])
+
+    print(f"Loaded QIEA hyperparameters from {path}:")
+    for key in sorted(hparams):
+        print(f"  {key:16s}: {hparams[key]}")
+
+    return hparams
+
+
+QIEA_HYPERPARAMS = load_qiea_hyperparams(HYPERPARAMS_PATH)
 
 # Model architecture
 ASPECT_RATIO = 64       # model_dim = depth * ASPECT_RATIO
@@ -436,15 +510,16 @@ WINDOW_PATTERN = "SSSL" # sliding window pattern: L=full, S=half context
 
 # Optimization
 TOTAL_BATCH_SIZE = 2**19 # ~524K tokens per optimizer step
-EMBEDDING_LR = 0.6      # learning rate for token embeddings (Adam)
-UNEMBEDDING_LR = 0.004  # learning rate for lm_head (Adam)
-MATRIX_LR = 0.04        # learning rate for matrix parameters (Muon)
-SCALAR_LR = 0.5         # learning rate for per-layer scalars (Adam)
-WEIGHT_DECAY = 0.2      # cautious weight decay for Muon
-ADAM_BETAS = (0.8, 0.95) # Adam beta1, beta2
-WARMUP_RATIO = 0.0      # fraction of time budget for LR warmup
-WARMDOWN_RATIO = 0.5    # fraction of time budget for LR warmdown
+EMBEDDING_LR = QIEA_HYPERPARAMS["embedding_lr"]
+UNEMBEDDING_LR = QIEA_HYPERPARAMS["unembedding_lr"]
+MATRIX_LR = QIEA_HYPERPARAMS["matrix_lr"]
+SCALAR_LR = QIEA_HYPERPARAMS["scalar_lr"]
+WEIGHT_DECAY = QIEA_HYPERPARAMS["weight_decay"]
+ADAM_BETAS = (QIEA_HYPERPARAMS["adam_beta1"], QIEA_HYPERPARAMS["adam_beta2"])
+WARMUP_RATIO = QIEA_HYPERPARAMS["warmup_ratio"]
+WARMDOWN_RATIO = QIEA_HYPERPARAMS["warmdown_ratio"]
 FINAL_LR_FRAC = 0.0     # final LR as fraction of initial
+DROPOUT = QIEA_HYPERPARAMS["dropout"]
 
 # Model size
 DEPTH = 8               # number of transformer layers
@@ -474,6 +549,7 @@ def build_model_config(depth):
         sequence_len=MAX_SEQ_LEN, vocab_size=vocab_size,
         n_layer=depth, n_head=num_heads, n_kv_head=num_heads, n_embd=model_dim,
         window_pattern=WINDOW_PATTERN,
+        dropout=DROPOUT,
     )
 
 config = build_model_config(DEPTH)
@@ -518,6 +594,8 @@ print(f"Gradient accumulation steps: {grad_accum_steps}")
 def get_lr_multiplier(progress):
     if progress < WARMUP_RATIO:
         return progress / WARMUP_RATIO if WARMUP_RATIO > 0 else 1.0
+    if WARMDOWN_RATIO <= 0:
+        return 1.0
     elif progress < 1.0 - WARMDOWN_RATIO:
         return 1.0
     else:
@@ -628,3 +706,17 @@ print(f"total_tokens_M:   {total_tokens / 1e6:.1f}")
 print(f"num_steps:        {step}")
 print(f"num_params_M:     {num_params / 1e6:.1f}")
 print(f"depth:            {DEPTH}")
+
+qiea_result = {
+    "val_bpb": float(val_bpb),
+    "training_seconds": float(total_training_time),
+    "total_seconds": float(t_end - t_start),
+    "peak_vram_mb": float(peak_vram_mb),
+    "mfu_percent": float(steady_state_mfu),
+    "total_tokens_M": float(total_tokens / 1e6),
+    "num_steps": int(step),
+    "num_params_M": float(num_params / 1e6),
+    "depth": int(DEPTH),
+}
+QIEA_LAST_RESULT_PATH.write_text(json.dumps(qiea_result, indent=2, sort_keys=True))
+print(f"qiea_result_file: {QIEA_LAST_RESULT_PATH}")
