@@ -1,0 +1,35 @@
+QIEA ARCHITECTURE BLUEPRINT
+===========================
+run_id: 100
+binary_string: 010010
+
+Semantics of each bit (left to right):
+  bit[0] norm_type: 0=RMSNorm, 1=LayerNorm
+  bit[1] attention_type: 0=StandardAttention, 1=SlidingWindowAttention
+  bit[2] mlp_type: 0=ReLU2MLP, 1=SwiGLUMLP
+  bit[3] value_embeddings: 0=NoValueEmbeddings, 1=UseValueEmbeddings
+  bit[4] qk_norm: 0=NoQKNorm, 1=UseQKNorm
+  bit[5] rope_base: 0=RoPEBase10k, 1=RoPEBase50k
+
+Collapsed architecture for this run:
+  - norm_type: RMSNorm
+  - attention_type: SlidingWindowAttention
+  - mlp_type: ReLU2MLP
+  - value_embeddings: NoValueEmbeddings
+  - qk_norm: UseQKNorm
+  - rope_base: RoPEBase10k
+
+Mandatory train.py edits (exact constants):
+  ARCH_NORM_TYPE = "rmsnorm"
+  ARCH_ATTENTION_TYPE = "sliding_window"
+  ARCH_MLP_TYPE = "relu2"
+  ARCH_USE_VALUE_EMBEDDINGS = False
+  ARCH_USE_QK_NORM = True
+  ARCH_ROPE_BASE = 10000.0
+
+Execution checklist:
+  1) Open train.py and update only the QIEA architecture constant block.
+  2) Ensure the constants exactly match the lines above.
+  3) Run uv run train.py > run.log 2>&1
+  4) Run uv run qiea_evaluate.py --run-log run.log
+  5) Do not manually tweak architecture constants outside this blueprint.

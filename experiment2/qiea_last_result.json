@@ -1,0 +1,23 @@
+{
+  "architecture": {
+    "attention_type": "standard",
+    "mlp_type": "swiglu",
+    "norm_type": "layernorm",
+    "rope_base": 50000.0,
+    "use_qk_norm": false,
+    "use_value_embeddings": true
+  },
+  "blueprint": {
+    "binary_string": "101101",
+    "run_id": 99
+  },
+  "depth": 8,
+  "mfu_percent": 22.7159147392761,
+  "num_params": 58720784,
+  "num_steps": 404,
+  "peak_vram_mb": 55109.52197265625,
+  "total_seconds": 334.96695160865784,
+  "total_tokens": 211812352,
+  "training_seconds": 300.66210675239563,
+  "val_bpb": 1.1112922820088151
+}

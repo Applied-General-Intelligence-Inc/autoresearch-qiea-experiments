@@ -1,0 +1,28 @@
+{
+  "binary_string": "010010",
+  "bits": [
+    0,
+    1,
+    0,
+    0,
+    1,
+    0
+  ],
+  "choices": {
+    "attention_type": "SlidingWindowAttention",
+    "mlp_type": "ReLU2MLP",
+    "norm_type": "RMSNorm",
+    "qk_norm": "UseQKNorm",
+    "rope_base": "RoPEBase10k",
+    "value_embeddings": "NoValueEmbeddings"
+  },
+  "constant_assignments": {
+    "ARCH_ATTENTION_TYPE": "\"sliding_window\"",
+    "ARCH_MLP_TYPE": "\"relu2\"",
+    "ARCH_NORM_TYPE": "\"rmsnorm\"",
+    "ARCH_ROPE_BASE": "10000.0",
+    "ARCH_USE_QK_NORM": "True",
+    "ARCH_USE_VALUE_EMBEDDINGS": "False"
+  },
+  "run_id": 100
+}

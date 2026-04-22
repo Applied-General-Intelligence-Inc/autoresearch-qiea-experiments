@@ -1,0 +1,11 @@
+{
+  "depth": 8,
+  "mfu_percent": 20.722728993853703,
+  "num_params_M": 50.332176,
+  "num_steps": 501,
+  "peak_vram_mb": 47060.45947265625,
+  "total_seconds": 342.64312076568604,
+  "total_tokens_M": 262.668288,
+  "training_seconds": 300.14354276657104,
+  "val_bpb": 1.1389878883573796
+}

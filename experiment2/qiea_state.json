@@ -1,0 +1,104 @@
+{
+  "best_val_bpb": 1.067921491587577,
+  "choice_counts": {
+    "attention_type": {
+      "0": 48,
+      "1": 51
+    },
+    "mlp_type": {
+      "0": 61,
+      "1": 38
+    },
+    "norm_type": {
+      "0": 61,
+      "1": 38
+    },
+    "qk_norm": {
+      "0": 43,
+      "1": 56
+    },
+    "rope_base": {
+      "0": 48,
+      "1": 51
+    },
+    "value_embeddings": {
+      "0": 34,
+      "1": 65
+    }
+  },
+  "last_result": {
+    "binary_string": "101101",
+    "diversity": {
+      "added_lines": 0,
+      "base_commit": "228791f",
+      "change_ratio": "0.00000000",
+      "changed_lines": 0,
+      "deleted_lines": 0,
+      "diff_hash": "e3b0c44298fc1c14",
+      "error": "",
+      "head_commit": "4629914",
+      "method": "git_head_to_prev",
+      "train_total_lines": 765
+    },
+    "improved": false,
+    "rotation_angle": 0.04920419068940861,
+    "run_id": 99,
+    "val_bpb": 1.1112922820088151
+  },
+  "pending_observation": {
+    "binary_string": "010010",
+    "bits": [
+      0,
+      1,
+      0,
+      0,
+      1,
+      0
+    ],
+    "choices": {
+      "attention_type": "SlidingWindowAttention",
+      "mlp_type": "ReLU2MLP",
+      "norm_type": "RMSNorm",
+      "qk_norm": "UseQKNorm",
+      "rope_base": "RoPEBase10k",
+      "value_embeddings": "NoValueEmbeddings"
+    },
+    "constant_assignments": {
+      "ARCH_ATTENTION_TYPE": "\"sliding_window\"",
+      "ARCH_MLP_TYPE": "\"relu2\"",
+      "ARCH_NORM_TYPE": "\"rmsnorm\"",
+      "ARCH_ROPE_BASE": "10000.0",
+      "ARCH_USE_QK_NORM": "True",
+      "ARCH_USE_VALUE_EMBEDDINGS": "False"
+    },
+    "run_id": 100
+  },
+  "qbits": [
+    {
+      "alpha": 0.7714565257198258,
+      "beta": 0.6362820356762368
+    },
+    {
+      "alpha": 0.6217748343047468,
+      "beta": 0.7831960517171321
+    },
+    {
+      "alpha": 0.8084659439985377,
+      "beta": 0.5885429613839193
+    },
+    {
+      "alpha": 0.729224158096163,
+      "beta": 0.6842748915815502
+    },
+    {
+      "alpha": 0.616735695915228,
+      "beta": 0.787170300115521
+    },
+    {
+      "alpha": 0.5956238928618323,
+      "beta": 0.8032634550706989
+    }
+  ],
+  "run_count": 99,
+  "version": 2
+}
